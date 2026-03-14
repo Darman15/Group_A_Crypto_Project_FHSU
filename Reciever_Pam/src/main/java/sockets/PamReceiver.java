@@ -13,11 +13,33 @@ public class PamReceiver {
         Socket socket = serverSocket.accept();
 
         DataInputStream dis = new DataInputStream(socket.getInputStream());
-        String message = dis.readUTF();
+        int length = dis.readInt();
+        byte[] messageBytes = new byte[length];
+        dis.readFully(messageBytes);
 
-        System.out.println("Pam: Message received: " + message);
+        String message = new String(messageBytes, "UTF-8");
+        System.out.println("Pam: Received byte array: " + java.util.Arrays.toString(messageBytes));
+        System.out.println("Pam: Received hex:        " + bytesToHex(messageBytes));
+        System.out.println("Pam: Decoded message:     " + message);
 
         socket.close();
         serverSocket.close();
+    }
+
+    public static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X ", b));
+        }
+        return sb.toString().trim();
+    }
+
+    public static String bytesToBits(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
+            sb.append(" ");
+        }
+        return sb.toString().trim();
     }
 }
