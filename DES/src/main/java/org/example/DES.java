@@ -26,6 +26,32 @@ public class DES {
     };
 
 
+    // Parity Drop Table (64-bit key -> 56-bit key)
+    private static final int[] PC1 = {
+            57, 49, 41, 33, 25, 17,  9,
+            1, 58, 50, 42, 34, 26, 18,
+            10,  2, 59, 51, 43, 35, 27,
+            19, 11,  3, 60, 52, 44, 36,
+            63, 55, 47, 39, 31, 23, 15,
+            7, 62, 54, 46, 38, 30, 22,
+            14,  6, 61, 53, 45, 37, 29,
+            21, 13,  5, 28, 20, 12,  4
+    };
+
+    // Compression Permutation Table (56-bit -> 48-bit)
+    private static final int[] PC2 = {
+            14, 17, 11, 24,  1,  5,
+            3, 28, 15,  6, 21, 10,
+            23, 19, 12,  4, 26,  8,
+            16,  7, 27, 20, 13,  2,
+            41, 52, 31, 37, 47, 55,
+            30, 40, 51, 45, 33, 48,
+            44, 49, 39, 56, 34, 53,
+            46, 42, 50, 36, 29, 32
+    };
+
+
+
     public static int[] permute(int[] bits, int[] table) {
         int[] output = new int[table.length];
         for (int i = 0; i < table.length; i++) {
@@ -64,6 +90,63 @@ public class DES {
             sb.append(bits[i]);
         }
         System.out.println(sb.toString());
+    }
+
+    // Number of left shifts per round
+    private static final int[] SHIFT_SCHEDULE = {
+            1, 1, 2, 2, 2, 2, 2, 2,
+            1, 2, 2, 2, 2, 2, 2, 1
+    };
+
+    // Generate 16 subkeys from original key
+    public static int[][] generateSubkeys(byte[] keyBytes) {
+        // Step 1: Convert key to bits and apply PC1 (64 -> 56 bits)
+        int[] keyBits = bytesToBits(keyBytes);
+        int[] permutedKey = permute(keyBits, PC1);
+
+        // Step 2: Split into two 28-bit halves C and D
+        int[] C = java.util.Arrays.copyOfRange(permutedKey, 0, 28);
+        int[] D = java.util.Arrays.copyOfRange(permutedKey, 28, 56);
+
+        // Step 3: Generate 16 subkeys
+        int[][] subkeys = new int[16][48];
+
+        for (int round = 0; round < 16; round++) {
+            // Left shift both halves
+            C = leftShift(C, SHIFT_SCHEDULE[round]);
+            D = leftShift(D, SHIFT_SCHEDULE[round]);
+
+            // Combine C and D
+            int[] CD = new int[56];
+            System.arraycopy(C, 0, CD, 0, 28);
+            System.arraycopy(D, 0, CD, 28, 28);
+
+            // Apply PC2 to get 48-bit subkey
+            subkeys[round] = permute(CD, PC2);
+
+            printBits("Subkey " + (round + 1), subkeys[round]);
+        }
+
+        return subkeys;
+    }
+
+    // Left shift a bit array by n positions
+    private static int[] leftShift(int[] bits, int n) {
+        int[] shifted = new int[bits.length];
+        for (int i = 0; i < bits.length; i++) {
+            shifted[i] = bits[(i + n) % bits.length];
+        }
+        return shifted;
+    }
+
+    // Convert bit array to hex string for display
+    public static String bitsToHex(int[] bits) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < bits.length; i += 4) {
+            int nibble = bits[i] * 8 + bits[i+1] * 4 + bits[i+2] * 2 + bits[i+3];
+            sb.append(String.format("%X", nibble));
+        }
+        return sb.toString();
     }
 
 }
