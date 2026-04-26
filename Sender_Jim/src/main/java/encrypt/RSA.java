@@ -1,8 +1,25 @@
-package org.example.encrypt;
+package encrypt;
 import java.math.BigInteger;
 import java.util.Random;
 
 public class RSA {
+
+    static final BigInteger p = largePrime(1024);
+    static final BigInteger q = largePrime(1024);
+    static final BigInteger n = n(p, q);
+    static final BigInteger phi = getPhi(p, q);
+    static final BigInteger e = genE(phi);
+    static final BigInteger d = e.modInverse(phi);
+
+    //Convert DES key Array to hexadecimal string
+    public static String HexToString(String hex) {
+        StringBuilder output = new StringBuilder();
+        for (int i = 0; i < hex.length(); i += 2) {
+            String str = hex.substring(i, i + 2);
+            output.append((char)Integer.parseInt(str, 16));
+        }
+        return output.toString().trim();
+    }
 
     //Takes string and converts characters to ASCII decimal
     //Returns BigInteger
@@ -44,18 +61,12 @@ public class RSA {
 
     //Generate random large prime number at specified bitlength
     public static BigInteger largePrime(int bits) {
-        Random randomInteger = new Random();
-        BigInteger largePrime = BigInteger.probablePrime(bits, randomInteger);
-        return largePrime;
+        return BigInteger.probablePrime(bits, new Random());
     }
 
     //Recursive Euclidean algo to find gcd
     public static BigInteger gcd(BigInteger a, BigInteger b) {
-        if (b.equals(BigInteger.ZERO)) {
-            return a;
-        } else {
-            return gcd(b, a.mod(b));
-        }
+       return a.gcd(b);
     }
 
     /*Recursive extended Euclidean algo to find
@@ -77,13 +88,10 @@ public class RSA {
     //generate e by finding a Phi that is a coprime gcd = 1
     public static BigInteger genE(BigInteger phi) {
         Random rand = new Random();
-        BigInteger e = new BigInteger(1024, rand);
+        BigInteger e;
         do {
-            e = new BigInteger(1024, rand);
-            while (e.min(phi).equals(phi)) {
-                e = new BigInteger(1024, rand);
-            }
-        } while (!gcd(e, phi).equals(BigInteger.ONE));
+            e = new BigInteger(phi.bitLength() - 1, rand);
+        } while (e.compareTo(BigInteger.ONE) <= 0 || !e.gcd(phi).equals(BigInteger.ONE));
         return e;
     }
 
@@ -91,11 +99,23 @@ public class RSA {
         return key.modPow(e, n);
     }
 
-    public static BigInteger decryptKey(BigInteger key, BigInteger d, BigInteger n) {
-        return key.modPow(d, n);
+    public static BigInteger decrypt(BigInteger cipher, BigInteger d, BigInteger n) {
+        return cipher.modPow(d, n);
     }
 
     public static BigInteger n(BigInteger p, BigInteger q) {
         return p.multiply(q);
+    }
+
+    public static BigInteger encrypt(byte[] bytes) {
+       
+        BigInteger cipherKey = new BigInteger(1, bytes);
+        return encryptKey(cipherKey, e, n);
+    }
+
+    public static BigInteger decrypt(byte[] encryptKey) {
+        BigInteger a = BigInteger.valueOf(encryptKey[i]);
+        BigInteger b = a.modPow(encryptKey, n);
+        return decryptKey;
     }
 }

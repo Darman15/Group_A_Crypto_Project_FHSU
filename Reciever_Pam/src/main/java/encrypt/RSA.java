@@ -1,4 +1,4 @@
-package org.encrypt;
+package encrypt;
 import java.math.BigInteger;
 import java.util.Random;
 
