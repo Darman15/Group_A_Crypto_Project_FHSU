@@ -4,12 +4,12 @@ import java.util.Random;
 
 public class RSA {
 
-    static final BigInteger p = largePrime(1024);
-    static final BigInteger q = largePrime(1024);
-    static final BigInteger n = n(p, q);
-    static final BigInteger phi = getPhi(p, q);
-    static final BigInteger e = genE(phi);
-    static final BigInteger d = e.modInverse(phi);
+    protected static BigInteger p = largePrime(1024);
+    protected static BigInteger q = largePrime(1024);
+    protected static BigInteger n = n(p, q);
+    protected static BigInteger phi = getPhi(p, q);
+    protected static BigInteger e = genE(phi);
+    protected static BigInteger d = e.modInverse(phi);
 
     //Convert DES key Array to hexadecimal string
     public static String HexToString(String hex) {
@@ -99,23 +99,17 @@ public class RSA {
         return key.modPow(e, n);
     }
 
-    public static BigInteger decrypt(BigInteger cipher, BigInteger d, BigInteger n) {
-        return cipher.modPow(d, n);
-    }
-
     public static BigInteger n(BigInteger p, BigInteger q) {
         return p.multiply(q);
     }
 
     public static BigInteger encrypt(byte[] bytes) {
-       
         BigInteger cipherKey = new BigInteger(1, bytes);
         return encryptKey(cipherKey, e, n);
     }
 
-    public static BigInteger decrypt(byte[] encryptKey) {
-        BigInteger a = BigInteger.valueOf(encryptKey[i]);
-        BigInteger b = a.modPow(encryptKey, n);
-        return decryptKey;
+    public static byte[] decrypt(BigInteger encrypt) {
+        BigInteger decryptedBigInt = encrypt.modPow(d, n);
+        return decryptedBigInt.toByteArray();
     }
 }

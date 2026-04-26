@@ -4,6 +4,13 @@ import java.util.Random;
 
 public class RSA {
 
+    public static BigInteger p = largePrime(1024);
+    public static BigInteger q = largePrime(1024);
+    public static BigInteger n = n(p, q);
+    public static BigInteger phi = getPhi(p, q);
+    public static BigInteger e = genE(phi);
+    public static BigInteger d = e.modInverse(phi);
+
     //Convert DES key Array to hexadecimal string
     public static String HexToString(String hex) {
         StringBuilder output = new StringBuilder();

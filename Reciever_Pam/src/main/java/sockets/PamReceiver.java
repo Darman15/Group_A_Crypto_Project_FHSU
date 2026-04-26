@@ -1,6 +1,7 @@
 package sockets;
 
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -8,16 +9,13 @@ import java.net.Socket;
 import encrypt.DES;
 import encrypt.DESPadding;
 import encrypt.RSA;
+import encrypt.RSAPadding;
 
 public class PamReceiver {
     private static final int PORT = 9999;
+    private byte[] KEY;
 
-    // Same shared key as Jim
-   /*  private static final byte[] KEY = {
-            (byte)0x13, (byte)0x34, (byte)0x57,
-            (byte)0x79, (byte)0x9B, (byte)0xBC,
-            (byte)0xDF, (byte)0xF1
-    };*/
+    
 
     public void start() throws Exception {
         System.out.println("Pam: Waiting for message...");
@@ -25,10 +23,25 @@ public class PamReceiver {
         ServerSocket serverSocket = new ServerSocket(PORT);
         Socket socket = serverSocket.accept();
         DataInputStream dis = new DataInputStream(socket.getInputStream());
+        DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+
+        // Send RSA public key (n, e) so Jim can encrypt the DES key for us
+        byte[] nBytes = RSA.n.toByteArray();
+        byte[] eBytes = RSA.e.toByteArray();
+        dos.writeInt(nBytes.length);
+        dos.write(nBytes);
+        dos.writeInt(eBytes.length);
+        dos.write(eBytes);
+        dos.flush();
 
         // Read method choice
         int method = dis.readInt();
         System.out.println("Pam: Encryption method received: " + (method == 1 ? "DES" : "AES"));
+
+        //Read encrypted key
+        int keyLength = dis.readInt();
+        byte[] encryptedKey = new byte[keyLength];
+        dis.readFully(encryptedKey);
 
         // Read encrypted bytes
         int length = dis.readInt();
@@ -37,6 +50,16 @@ public class PamReceiver {
 
         System.out.println("Pam: Encrypted bits: " + bytesToBits(encrypted));
         System.out.println("Pam: Encrypted hex:  " + DES.bitsToHex(DES.bytesToBits(encrypted)));
+
+        // Decrypt KEY using Pam's private key
+        byte[] rawDecrypted = RSA.decrypt(new BigInteger(1, encryptedKey), RSA.d, RSA.n).toByteArray();
+        // Reconstruct the fixed 32-byte padded block (BigInteger may strip leading zero bytes)
+        byte[] decryptedPadded = new byte[32];
+        int srcOff = Math.max(0, rawDecrypted.length - 32);
+        int dstOff = Math.max(0, 32 - rawDecrypted.length);
+        System.arraycopy(rawDecrypted, srcOff, decryptedPadded, dstOff, rawDecrypted.length - srcOff);
+        // Remove RSA padding to recover the original DES key
+        KEY = RSAPadding.unpad(decryptedPadded);
 
         // Decrypt each 8-byte block
         byte[] decrypted = decryptAllBlocks(encrypted);
