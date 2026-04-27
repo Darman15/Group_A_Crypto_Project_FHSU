@@ -1,16 +1,19 @@
 package sockets;
 
+import java.io.DataOutputStream;
+import java.io.ObjectOutputStream;
+import java.math.BigInteger;
+import java.net.Socket;
+
 import encrypt.DES;
 import encrypt.DESPadding;
-
-import java.io.*;
-import java.net.*;
+import encrypt.RSA;
 
 public class JimSender {
     private static final String HOST = "localhost";
     private static final int PORT = 8888;
 
-    // Hardcoded shared key (Jim and Pam both know this)
+    //DES key
     private static final byte[] KEY = {
             (byte)0x13, (byte)0x34, (byte)0x57,
             (byte)0x79, (byte)0x9B, (byte)0xBC,
@@ -20,6 +23,7 @@ public class JimSender {
     public void send(String message, int method) throws Exception {
         Socket socket = new Socket(HOST, PORT);
         DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+        ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 
         // Convert message to bytes
         byte[] messageBytes = message.getBytes("UTF-8");
@@ -30,10 +34,14 @@ public class JimSender {
         // Encrypt each 8-byte block
         byte[] encrypted = encryptAllBlocks(padded);
 
+        // Encrypt DES Key
+        BigInteger encryptedKey = encryptKey(KEY);
+
         // Send method choice first (1 = DES, 2 = AES coming later)
         dos.writeInt(method);
 
         // Send encrypted bytes
+        oos.writeObject(encryptedKey);
         dos.writeInt(encrypted.length);
         dos.write(encrypted);
 
@@ -55,6 +63,11 @@ public class JimSender {
             System.arraycopy(encryptedBlock, 0, encrypted, i, 8);
         }
         return encrypted;
+    }
+
+    private BigInteger encryptKey(byte[] padded) throws Exception {
+        BigInteger encryptedKey = RSA.encrypt(KEY);
+        return encryptedKey;
     }
 
     public static String bytesToBits(byte[] bytes) {

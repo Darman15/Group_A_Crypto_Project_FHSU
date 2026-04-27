@@ -1,20 +1,23 @@
 package sockets;
 
+import java.io.DataInputStream;
+import java.math.BigInteger;
+import java.net.ServerSocket;
+import java.net.Socket;
+
 import encrypt.DES;
 import encrypt.DESPadding;
-
-import java.io.*;
-import java.net.*;
+import encrypt.RSA;
 
 public class PamReceiver {
     private static final int PORT = 9999;
 
     // Same shared key as Jim
-    private static final byte[] KEY = {
+   /*  private static final byte[] KEY = {
             (byte)0x13, (byte)0x34, (byte)0x57,
             (byte)0x79, (byte)0x9B, (byte)0xBC,
             (byte)0xDF, (byte)0xF1
-    };
+    };*/
 
     public void start() throws Exception {
         System.out.println("Pam: Waiting for message...");
@@ -37,6 +40,7 @@ public class PamReceiver {
 
         // Decrypt each 8-byte block
         byte[] decrypted = decryptAllBlocks(encrypted);
+
 
         // Remove padding
         byte[] unpadded = DESPadding.unpad(decrypted);
