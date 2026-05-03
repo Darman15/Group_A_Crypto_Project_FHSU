@@ -4,118 +4,117 @@ import java.util.Random;
 
 public class RSA {
 
-    static final BigInteger p = largePrime(1024);
-    static final BigInteger q = largePrime(1024);
-    static final BigInteger n = n(p, q);
-    static final BigInteger phi = getPhi(p, q);
-    static final BigInteger e = genE(phi);
-    static final BigInteger d = e.modInverse(phi);
+    // RSA key pair generated once when the class is loaded.
+    // P and Q are secret large primes; N is the public modulus (P*Q).
+    // PHI is Euler's totient (P-1)*(Q-1), used only during key generation.
+    // E is the public exponent; D is the private exponent (E's modular inverse mod PHI).
+    protected static final BigInteger P;
+    protected static final BigInteger Q;
+    protected static final BigInteger N;
+    protected static final BigInteger PHI;
+    protected static final BigInteger E;
+    protected static final BigInteger D;
 
-    //Convert DES key Array to hexadecimal string
-    public static String HexToString(String hex) {
+    static {
+        P   = largePrime(1024);
+        Q   = largePrime(1024);
+        N   = computeModulus(P, Q);
+        PHI = getPhi(P, Q);
+        E   = genE(PHI);
+        D   = E.modInverse(PHI);
+    }
+
+    // Converts a hex string (e.g. "1A2B") to its ASCII character representation.
+    public static String hexToString(String hex) {
         StringBuilder output = new StringBuilder();
         for (int i = 0; i < hex.length(); i += 2) {
             String str = hex.substring(i, i + 2);
-            output.append((char)Integer.parseInt(str, 16));
+            output.append((char) Integer.parseInt(str, 16));
         }
         return output.toString().trim();
     }
 
-    //Takes string and converts characters to ASCII decimal
-    //Returns BigInteger
+    // Converts a string to a BigInteger by concatenating the ASCII decimal value
+    // of each character (e.g. "AB" -> 6566).
     public static BigInteger stringCipher(String key) {
         key = key.toUpperCase();
-        String cipherString = "";
-        int i = 0;
-
-        while (i < key.length()) {
-            int ch = (int) key.charAt(i);
-            cipherString = cipherString + ch;
-            i++;
+        StringBuilder cipherString = new StringBuilder();
+        for (int i = 0; i < key.length(); i++) {
+            cipherString.append((int) key.charAt(i));
         }
-
-        BigInteger cipherBig = new BigInteger(String.valueOf(cipherString));
-        return cipherBig;
+        return new BigInteger(cipherString.toString());
     }
 
-    //Takes ciphered BigInt and converts to plain text
-    //returns String
+    // Reverses stringCipher: splits the numeric string into 2-digit chunks
+    // and converts each back to its ASCII character.
     public static String cipherToString(BigInteger key) {
         String cipherString = key.toString();
-        String output = "";
-        int i = 0;
-        while (i < cipherString.length()) {
+        StringBuilder output = new StringBuilder();
+        for (int i = 0; i < cipherString.length(); i += 2) {
             int temp = Integer.parseInt(cipherString.substring(i, i + 2));
-            char ch = (char) temp;
-            output = output + ch;
-            i = i + 2;
+            output.append((char) temp);
         }
-        return output;
+        return output.toString();
     }
 
-    //Compute Phi(n) Euler's totient
-    public static BigInteger getPhi(BigInteger p, BigInteger q) {
-        BigInteger phi = (p.subtract(BigInteger.ONE)).multiply(q.subtract(BigInteger.ONE));
-        return phi;
+    // Computes Euler's totient: PHI(N) = (P-1)*(Q-1).
+    // Measures how many integers less than N are coprime to N.
+    public static BigInteger getPhi(BigInteger prime1, BigInteger prime2) {
+        return prime1.subtract(BigInteger.ONE).multiply(prime2.subtract(BigInteger.ONE));
     }
 
-    //Generate random large prime number at specified bitlength
+    // Generates a random probable prime of the given bit length.
     public static BigInteger largePrime(int bits) {
         return BigInteger.probablePrime(bits, new Random());
     }
 
-    //Recursive Euclidean algo to find gcd
+    // Returns the greatest common divisor of a and b.
     public static BigInteger gcd(BigInteger a, BigInteger b) {
-       return a.gcd(b);
+        return a.gcd(b);
     }
 
-    /*Recursive extended Euclidean algo to find
-    multiplicative inverse
-    returns d, p, q; d = gcd(a,b) and ap + pq = d */
+    // Extended Euclidean algorithm: returns {gcd, x, y} such that a*x + b*y = gcd(a,b).
+    // Used to find modular inverses.
     public static BigInteger[] extEuclid(BigInteger a, BigInteger b) {
-        if (b.equals(BigInteger.ZERO)) return new BigInteger[] {
-            a, BigInteger.ONE, BigInteger.ZERO
-        };
+        if (b.equals(BigInteger.ZERO)) return new BigInteger[]{a, BigInteger.ONE, BigInteger.ZERO};
         BigInteger[] vals = extEuclid(b, a.mod(b));
-        BigInteger d = vals[0];
-        BigInteger p = vals [2];
-        BigInteger q = vals [1].subtract(a.divide(b).multiply(vals[2]));
-        return new BigInteger[] {
-            d, p, q
-        };
+        BigInteger gcd = vals[0];
+        BigInteger x   = vals[2];
+        BigInteger y   = vals[1].subtract(a.divide(b).multiply(vals[2]));
+        return new BigInteger[]{gcd, x, y};
     }
 
-    //generate e by finding a Phi that is a coprime gcd = 1
-    public static BigInteger genE(BigInteger phi) {
+    // Generates the public exponent E: a random number smaller than PHI
+    // that shares no common factors with PHI (gcd(E, PHI) == 1).
+    public static BigInteger genE(BigInteger totient) {
         Random rand = new Random();
-        BigInteger e;
+        BigInteger candidate;
         do {
-            e = new BigInteger(phi.bitLength() - 1, rand);
-        } while (e.compareTo(BigInteger.ONE) <= 0 || !e.gcd(phi).equals(BigInteger.ONE));
-        return e;
+            candidate = new BigInteger(totient.bitLength() - 1, rand);
+        } while (candidate.compareTo(BigInteger.ONE) <= 0 || !candidate.gcd(totient).equals(BigInteger.ONE));
+        return candidate;
     }
 
-    public static BigInteger encryptKey(BigInteger key, BigInteger e, BigInteger n) {
-        return key.modPow(e, n);
+    // RSA encryption: cipher = key^pubE mod modulus.
+    // Used by Jim to encrypt the DES key with Pam's public key (E, N).
+    public static BigInteger encryptKey(BigInteger key, BigInteger pubE, BigInteger modulus) {
+        return key.modPow(pubE, modulus);
     }
 
-    public static BigInteger decrypt(BigInteger cipher, BigInteger d, BigInteger n) {
-        return cipher.modPow(d, n);
+    // Computes the RSA modulus N = P * Q.
+    public static BigInteger computeModulus(BigInteger prime1, BigInteger prime2) {
+        return prime1.multiply(prime2);
     }
 
-    public static BigInteger n(BigInteger p, BigInteger q) {
-        return p.multiply(q);
-    }
-
+    // converts byte array to a BigInteger and encrypts
+    // using this class's own key pair (E, N).
     public static BigInteger encrypt(byte[] bytes) {
-       
         BigInteger cipherKey = new BigInteger(1, bytes);
-        return encryptKey(cipherKey, e, n);
+        return encryptKey(cipherKey, E, N);
     }
 
-    public static BigInteger decrypt(byte[] encryptKey) {
-        BigInteger a = BigInteger.valueOf(encryptKey[i]);
-        BigInteger b = a.modPow(encryptKey, n);
-        return decryptKey;
+    // RSA decryption using this class's own key pair: plain = cipher^D mod N.
+    public static byte[] decrypt(BigInteger cipher) {
+        return cipher.modPow(D, N).toByteArray();
     }
 }

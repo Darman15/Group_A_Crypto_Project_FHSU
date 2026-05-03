@@ -1,13 +1,14 @@
 package sockets;
 
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.ObjectOutputStream;
 import java.math.BigInteger;
 import java.net.Socket;
 
 import encrypt.DES;
 import encrypt.DESPadding;
 import encrypt.RSA;
+import encrypt.RSAPadding;
 
 public class JimSender {
     private static final String HOST = "localhost";
@@ -22,8 +23,18 @@ public class JimSender {
 
     public void send(String message, int method) throws Exception {
         Socket socket = new Socket(HOST, PORT);
+        DataInputStream dis = new DataInputStream(socket.getInputStream());
         DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-        ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+
+        // Read Pam's RSA public key (forwarded by Dwight)
+        int nLen = dis.readInt();
+        byte[] nBytes = new byte[nLen];
+        dis.readFully(nBytes);
+        int eLen = dis.readInt();
+        byte[] eBytes = new byte[eLen];
+        dis.readFully(eBytes);
+        BigInteger pamN = new BigInteger(1, nBytes);
+        BigInteger pamE = new BigInteger(1, eBytes);
 
         // Convert message to bytes
         byte[] messageBytes = message.getBytes("UTF-8");
@@ -34,14 +45,16 @@ public class JimSender {
         // Encrypt each 8-byte block
         byte[] encrypted = encryptAllBlocks(padded);
 
-        // Encrypt DES Key
-        BigInteger encryptedKey = encryptKey(KEY);
+        // Pad DES key to 32 bytes then RSA-encrypt with Pam's public key
+        byte[] paddedKey = RSAPadding.pad(KEY, 32);
+        byte[] encryptedKeyBytes = RSA.encryptKey(new BigInteger(1, paddedKey), pamE, pamN).toByteArray();
 
         // Send method choice first (1 = DES, 2 = AES coming later)
         dos.writeInt(method);
 
-        // Send encrypted bytes
-        oos.writeObject(encryptedKey);
+        // Send encrypted key then encrypted message
+        dos.writeInt(encryptedKeyBytes.length);
+        dos.write(encryptedKeyBytes);
         dos.writeInt(encrypted.length);
         dos.write(encrypted);
 
@@ -63,11 +76,6 @@ public class JimSender {
             System.arraycopy(encryptedBlock, 0, encrypted, i, 8);
         }
         return encrypted;
-    }
-
-    private BigInteger encryptKey(byte[] padded) throws Exception {
-        BigInteger encryptedKey = RSA.encrypt(KEY);
-        return encryptedKey;
     }
 
     public static String bytesToBits(byte[] bytes) {

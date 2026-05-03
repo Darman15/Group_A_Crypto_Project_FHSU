@@ -14,15 +14,38 @@ public class DwightInterceptor {
         ServerSocket serverSocket = new ServerSocket(LISTEN_PORT);
         Socket jimSocket = serverSocket.accept();
 
-        DataInputStream dis = new DataInputStream(jimSocket.getInputStream());
+        DataInputStream disJim = new DataInputStream(jimSocket.getInputStream());
+        DataOutputStream dosJim = new DataOutputStream(jimSocket.getOutputStream());
 
-        // Read method integer first
-        int method = dis.readInt();
+        // Connect to Pam first so we can relay her public key to Jim
+        Socket pamSocket = new Socket(PAM_HOST, PAM_PORT);
+        DataInputStream disPam = new DataInputStream(pamSocket.getInputStream());
+        DataOutputStream dosPam = new DataOutputStream(pamSocket.getOutputStream());
 
-        // Read encrypted bytes
-        int length = dis.readInt();
+        // Forward Pam's RSA public key (n, e) to Jim
+        int nLen = disPam.readInt();
+        byte[] nBytes = new byte[nLen];
+        disPam.readFully(nBytes);
+        int eLen = disPam.readInt();
+        byte[] eBytes = new byte[eLen];
+        disPam.readFully(eBytes);
+
+        dosJim.writeInt(nLen);
+        dosJim.write(nBytes);
+        dosJim.writeInt(eLen);
+        dosJim.write(eBytes);
+        dosJim.flush();
+
+        // Read Jim's message: method, encrypted key, encrypted message
+        int method = disJim.readInt();
+
+        int keyLength = disJim.readInt();
+        byte[] encryptedKey = new byte[keyLength];
+        disJim.readFully(encryptedKey);
+
+        int length = disJim.readInt();
         byte[] messageBytes = new byte[length];
-        dis.readFully(messageBytes);
+        disJim.readFully(messageBytes);
 
         System.out.println("Dwight: Intercepted method:    " + (method == 1 ? "DES" : "AES"));
         System.out.println("Dwight: Intercepted bit array: " + bytesToBits(messageBytes));
@@ -30,11 +53,12 @@ public class DwightInterceptor {
         System.out.println("Dwight: Translated as text: " + new String(messageBytes, "UTF-8"));
 
         // Forward everything to Pam
-        Socket pamSocket = new Socket(PAM_HOST, PAM_PORT);
-        DataOutputStream dos = new DataOutputStream(pamSocket.getOutputStream());
-        dos.writeInt(method);
-        dos.writeInt(messageBytes.length);
-        dos.write(messageBytes);
+        dosPam.writeInt(method);
+        dosPam.writeInt(keyLength);
+        dosPam.write(encryptedKey);
+        dosPam.writeInt(messageBytes.length);
+        dosPam.write(messageBytes);
+        dosPam.flush();
         System.out.println("Dwight: Forwarded to Pam.");
 
         jimSocket.close();
