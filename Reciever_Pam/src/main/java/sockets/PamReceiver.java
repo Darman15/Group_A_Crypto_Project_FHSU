@@ -25,9 +25,9 @@ public class PamReceiver {
         DataInputStream dis = new DataInputStream(socket.getInputStream());
         DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
 
-        // Send RSA public key (n, e) so Jim can encrypt the DES key for us
-        byte[] nBytes = RSA.n.toByteArray();
-        byte[] eBytes = RSA.e.toByteArray();
+        // Send RSA public key (N, E) so Jim can encrypt the DES key for us
+        byte[] nBytes = RSA.N.toByteArray();
+        byte[] eBytes = RSA.E.toByteArray();
         dos.writeInt(nBytes.length);
         dos.write(nBytes);
         dos.writeInt(eBytes.length);
@@ -52,7 +52,7 @@ public class PamReceiver {
         System.out.println("Pam: Encrypted hex:  " + DES.bitsToHex(DES.bytesToBits(encrypted)));
 
         // Decrypt KEY using Pam's private key
-        byte[] rawDecrypted = RSA.decrypt(new BigInteger(1, encryptedKey), RSA.d, RSA.n).toByteArray();
+        byte[] rawDecrypted = RSA.decrypt(new BigInteger(1, encryptedKey), RSA.D, RSA.N).toByteArray();
         // Reconstruct the fixed 32-byte padded block (BigInteger may strip leading zero bytes)
         byte[] decryptedPadded = new byte[32];
         int srcOff = Math.max(0, rawDecrypted.length - 32);
