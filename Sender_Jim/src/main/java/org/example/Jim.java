@@ -6,11 +6,15 @@ import java.util.Scanner;
 public class Jim {
     public static void main(String[] args) throws Exception {
         Scanner scanner = new Scanner(System.in);
-
-        System.out.print("Enter your message: ");
-        String message = scanner.nextLine();
-
         JimSender sender = new JimSender();
-        sender.send(message, 1);
+
+        while (true) {
+            System.out.print("\nEnter your message (or 'exit' to quit): ");
+            String message = scanner.nextLine();
+            if (message.equalsIgnoreCase("exit")) break;
+            sender.send(message, 1);
+        }
+
+        System.out.println("Jim: Goodbye!");
     }
 }
